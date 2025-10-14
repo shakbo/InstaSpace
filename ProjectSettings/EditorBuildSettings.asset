@@ -8,12 +8,15 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/ModelPlacement.unity
     guid: b70239fb90e9ff14a920b97c3c50656c
   - enabled: 0
     path: Assets/Scenes/AI model.unity
     guid: 4cc87ce55ca780340a4f85f0bbf95c4c
+  - enabled: 1
+    path: Assets/Scenes/TheFakingWall.unity
+    guid: 37bc7065cb34e5144bb624da68d2918f
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: afe54e8da5bf04a47bdf27b4485c0431, type: 2}

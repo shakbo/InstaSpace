@@ -10297,7 +10297,7 @@ MonoBehaviour:
   wallHeight: 2.5
   wallThickness: 0.05
   wallMaterial: {fileID: 2100000, guid: e6b9b44320f4448d9d5e0ee634259966, type: 2}
-  previewMaterial: {fileID: 2100000, guid: 95e5f56504682844890bb96ccc952d67, type: 2}
+  previewMaterial: {fileID: 2100000, guid: e20e7ce4bfd746143a4994decdbf3cfa, type: 2}
   rimMaterial: {fileID: 2100000, guid: e6b9b44320f4448d9d5e0ee634259966, type: 2}
   maxRayDistance: 10
 --- !u!4 &1953708294

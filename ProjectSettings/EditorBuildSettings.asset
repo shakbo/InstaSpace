@@ -8,13 +8,13 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/ModelPlacement.unity
     guid: b70239fb90e9ff14a920b97c3c50656c
   - enabled: 0
     path: Assets/Scenes/AI model.unity
     guid: 4cc87ce55ca780340a4f85f0bbf95c4c
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/TheFakingWall.unity
     guid: 37bc7065cb34e5144bb624da68d2918f
   m_configObjects:

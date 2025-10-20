@@ -29,6 +29,9 @@ public class MRUKPlacementManager : MonoBehaviour
     [Tooltip("When true the manager will prefer using the externally bound rightControllerTransform.")]
     public bool preferManualBinding = true;
 
+    [Tooltip("Enable debug logging for placement manager")]
+    public bool enableDebugLog = false;
+
     private int _selectedIndex = 0;
     private float _lastStickTime = 0f;
 
@@ -374,5 +377,32 @@ public class MRUKPlacementManager : MonoBehaviour
     public void UpdateRayAndPreviewNow()
     {
         UpdateRayAndPreview();
+    }
+
+    /// <summary>
+    /// Enable the manager (turn on Update loop and visual helpers).
+    /// Call this from inspector events or other scripts to activate placement mode.
+    /// </summary>
+    public void EnableManager()
+    {
+        this.enabled = true;
+        if (_lineRenderer != null) _lineRenderer.enabled = true;
+        UpdatePreviewVisibility(false);
+        
+        if (enableDebugLog)
+            Debug.Log("MRUKPlacementManager: Manager ENABLED - Update loop now running");
+    }
+
+    /// <summary>
+    /// Disable the manager and hide helpers. Safe to call from inspector events.
+    /// </summary>
+    public void DisableManager()
+    {
+        if (_lineRenderer != null) _lineRenderer.enabled = false;
+        UpdatePreviewVisibility(false);
+        this.enabled = false;
+        
+        if (enableDebugLog)
+            Debug.Log("MRUKPlacementManager: Manager DISABLED - Update loop stopped");
     }
 }

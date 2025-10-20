@@ -6,8 +6,8 @@ using UnityEngine;
 using LibCSG;
 
 // VirtualWallTool
-// - Raycasts from the right controller to place two points on MRUK floor anchors (pointA, pointB).
-// - Creates a vertical wall between pointA and pointB.
+// - Raycasts from the right controller to place two points on MRUK floor anchors (pointA, pointB);
+// - Creates a vertical wall between pointA and pointB;
 // - Press 'B' (OVR Button Two) to toggle "cutout mode".
 // - In cutout mode: press the right index trigger to add polygon vertices projected onto the selected wall.
 // - Press 'A' (OVR Button One) to apply the polygon cutout to the currently selected wall.
@@ -28,6 +28,8 @@ public class VirtualWallTool : MonoBehaviour
     public Material rimMaterial;
     [Tooltip("Maximum raycast distance")]
     public float maxRayDistance = 10f;
+    [Tooltip("Enable debug logging for virtual wall tool")]
+    public bool enableDebugLog = false;
 
     private Transform _rightHandAnchor;
     private GameObject _previewLineGO;
@@ -817,6 +819,46 @@ public class VirtualWallTool : MonoBehaviour
         float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
 
         return (u >= 0) && (v >= 0) && (u + v < 1);
+    }
+
+    /// <summary>
+    /// Enable the tool so Update runs and preview helpers are visible.
+    /// Call from inspector events.
+    /// </summary>
+    public void EnableTool()
+    {
+        this.enabled = true;
+        if (_previewLineGO != null) _previewLineGO.SetActive(true);
+        if (polyPreviewGO != null) polyPreviewGO.SetActive(false);
+        
+        if (enableDebugLog)
+            Debug.Log("VirtualWallTool: Tool ENABLED - Update loop now running");
+    }
+
+    /// <summary>
+    /// Disable the tool and hide preview helpers.
+    /// </summary>
+    public void DisableTool()
+    {
+        if (_previewLineGO != null) _previewLineGO.SetActive(false);
+        if (polyPreviewGO != null) polyPreviewGO.SetActive(false);
+        if (_previewSphere != null) _previewSphere.SetActive(false);
+        if (_pointASphere != null) _pointASphere.SetActive(false);
+        if (_pointBSphere != null) _pointBSphere.SetActive(false);
+        this.enabled = false;
+        
+        if (enableDebugLog)
+            Debug.Log("VirtualWallTool: Tool DISABLED - Update loop stopped");
+    }
+
+    /// <summary>
+    /// Allow external code to bind a Transform to be used as the right-hand ray origin.
+    /// This lets a central switcher share the same transform between tools to avoid duplicate FindObjectOfType calls.
+    /// Pass null to unbind and let the tool fall back to its own lookup.
+    /// </summary>
+    public void BindRightHandTransform(Transform t)
+    {
+        _rightHandAnchor = t;
     }
 }
 

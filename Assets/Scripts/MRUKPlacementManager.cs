@@ -150,33 +150,8 @@ public class MRUKPlacementManager : MonoBehaviour
 
     void Update()
     {
-        HandleLeftStickSelection();
+        // NOTE: automatic left-stick selection removed to allow external selection control.
         UpdateRayAndPreview();
-    }
-
-    private void HandleLeftStickSelection()
-    {
-        // read left stick on left controller with fallback
-        Vector2 leftStick = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
-        // if zero, try reading generic axis (some setups map differently)
-        if (leftStick.sqrMagnitude < 0.0001f)
-        {
-            leftStick = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
-        }
-
-        if (Time.time - _lastStickTime > stickCooldown)
-        {
-            if (leftStick.x > leftStickThreshold)
-            {
-                SelectedIndex = (SelectedIndex + 1) % modelPrefabs.Count;
-                _lastStickTime = Time.time;
-            }
-            else if (leftStick.x < -leftStickThreshold)
-            {
-                SelectedIndex = (SelectedIndex - 1 + modelPrefabs.Count) % modelPrefabs.Count;
-                _lastStickTime = Time.time;
-            }
-        }
     }
 
     private void UpdateRayAndPreview()
@@ -404,5 +379,43 @@ public class MRUKPlacementManager : MonoBehaviour
         
         if (enableDebugLog)
             Debug.Log("MRUKPlacementManager: Manager DISABLED - Update loop stopped");
+    }
+
+    /// <summary>
+    /// Set the selected model prefab externally. If the prefab is not in the list it will be appended.
+    /// </summary>
+    public void SetSelectedModel(GameObject prefab)
+    {
+        if (prefab == null) return;
+        if (modelPrefabs == null) modelPrefabs = new List<GameObject>();
+        int idx = modelPrefabs.IndexOf(prefab);
+        if (idx == -1)
+        {
+            modelPrefabs.Add(prefab);
+            idx = modelPrefabs.Count - 1;
+        }
+        SelectedIndex = idx;
+        if (enableDebugLog)
+            Debug.Log($"MRUKPlacementManager: selected model set to {prefab.name} (index {idx})");
+    }
+
+    /// <summary>
+    /// Enable placement manager and set the provided prefab as the currently selected model.
+    /// This is a convenience API for switching into placement mode from other tools.
+    /// </summary>
+    public void EnterPlacementWithModel(GameObject prefab)
+    {
+        SetSelectedModel(prefab);
+        EnableManager();
+    }
+
+    /// <summary>
+    /// Clear selected model and exit placement mode.
+    /// </summary>
+    public void ClearSelection()
+    {
+        DisableManager();
+        if (enableDebugLog)
+            Debug.Log("MRUKPlacementManager: selection cleared");
     }
 }

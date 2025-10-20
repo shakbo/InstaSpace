@@ -31,6 +31,12 @@ public class VirtualWallTool : MonoBehaviour
     [Tooltip("Enable debug logging for virtual wall tool")]
     public bool enableDebugLog = false;
 
+    [Header("Placement Integration")]
+    [Tooltip("Button to request placing a selected prefab using MRUKPlacementManager. If None, manual call RequestPlacementOf(prefab) must be used.")]
+    public OVRInput.Button enterPlacementButton = OVRInput.Button.None;
+    [Tooltip("Button to clear placement selection and return to this tool. If None, manual call ReturnFromPlacement() must be used.")]
+    public OVRInput.Button clearSelectionButton = OVRInput.Button.None;
+
     private Transform _rightHandAnchor;
     private GameObject _previewLineGO;
     private LineRenderer _previewLine;
@@ -50,6 +56,10 @@ public class VirtualWallTool : MonoBehaviour
     private GameObject _pointASphere;
     private GameObject _pointBSphere;
 
+    // Integration with MRUKPlacementManager
+    private MRUKPlacementManager _placementManager;
+    private bool _wasEnabledBeforePlacement = false;
+
     private void Awake()
     {
         // attempt to find OVRCameraRig in scene and get its rightHandOnControllerAnchor
@@ -67,7 +77,8 @@ public class VirtualWallTool : MonoBehaviour
         _previewLine.endWidth = 0.01f;
         _previewLine.loop = false;
         _previewLine.material = previewMaterial;
-        _previewLineGO.SetActive(true);
+        // start hidden by default; enable via EnableTool()
+        _previewLineGO.SetActive(false);
 
         // polygon preview
         polyPreviewGO = new GameObject("VWT_PolyPreview");
@@ -107,6 +118,12 @@ public class VirtualWallTool : MonoBehaviour
         else
             _pointBSphere.GetComponent<Renderer>().material = new Material(Shader.Find("Standard")) { color = Color.cyan };
         _pointBSphere.SetActive(false);
+
+        // try to find the MRUKPlacementManager in scene for integration
+        _placementManager = FindObjectOfType<MRUKPlacementManager>();
+
+        // Start disabled by default; tool must be enabled explicitly
+        this.enabled = false;
     }
 
     private void Update()
@@ -128,6 +145,27 @@ public class VirtualWallTool : MonoBehaviour
             Debug.Log($"VirtualWallTool: cutoutMode = {cutoutMode}");
         }
 
+        // allow quick integration controls if configured
+        if (enterPlacementButton != OVRInput.Button.None && OVRInput.GetDown(enterPlacementButton))
+        {
+            // If user configured a button, we'll attempt to request placement of currently selectedWall as a prefab (if available)
+            if (selectedWall != null)
+            {
+                // Use the selectedWall's GameObject as a template; user may prefer to reference an actual prefab instead.
+                RequestPlacementOf(selectedWall);
+            }
+            else
+            {
+                Debug.Log("VirtualWallTool: enterPlacementButton pressed but no selected wall to send to placement manager");
+            }
+        }
+
+        if (clearSelectionButton != OVRInput.Button.None && OVRInput.GetDown(clearSelectionButton))
+        {
+            // clear placement selection / return control
+            ReturnFromPlacement();
+        }
+
         // Raycast from right controller
         if (_rightHandAnchor == null) return;
         var ray = new Ray(_rightHandAnchor.position, _rightHandAnchor.forward);
@@ -136,9 +174,12 @@ public class VirtualWallTool : MonoBehaviour
         bool hit = MRUK.Instance != null && MRUK.Instance.GetCurrentRoom() != null &&
                    MRUK.Instance.GetCurrentRoom().Raycast(ray, maxRayDistance, out hitInfo, out hitAnchor);
 
-        // update preview line
-        _previewLine.SetPosition(0, ray.origin);
-        _previewLine.SetPosition(1, hit ? hitInfo.point : ray.origin + ray.direction * maxRayDistance);
+        // update preview line (only if preview visible)
+        if (_previewLineGO != null && _previewLineGO.activeSelf && _previewLine != null)
+        {
+            _previewLine.SetPosition(0, ray.origin);
+            _previewLine.SetPosition(1, hit ? hitInfo.point : ray.origin + ray.direction * maxRayDistance);
+        }
 
         // show preview sphere when pointing at floor in placement mode
         if (!cutoutMode && hit && hitAnchor != null && (hitAnchor.Label & MRUKAnchor.SceneLabels.FLOOR) != 0)
@@ -829,7 +870,7 @@ public class VirtualWallTool : MonoBehaviour
     {
         this.enabled = true;
         if (_previewLineGO != null) _previewLineGO.SetActive(true);
-        if (polyPreviewGO != null) polyPreviewGO.SetActive(false);
+        if (polyPreviewGO != null) polyPreviewGO.SetActive(cutoutMode);
         
         if (enableDebugLog)
             Debug.Log("VirtualWallTool: Tool ENABLED - Update loop now running");
@@ -859,6 +900,83 @@ public class VirtualWallTool : MonoBehaviour
     public void BindRightHandTransform(Transform t)
     {
         _rightHandAnchor = t;
+    }
+
+    // ---------- Integration APIs ----------
+
+    /// <summary>
+    /// Enable extra functionalities for integration scenario. This will attempt to find MRUKPlacementManager in scene.
+    /// </summary>
+    public void EnableFunctionalities()
+    {
+        _placementManager = _placementManager ?? FindObjectOfType<MRUKPlacementManager>();
+        if (_placementManager == null)
+        {
+            Debug.LogWarning("VirtualWallTool: MRUKPlacementManager not found in scene. Integration features will be unavailable.");
+        }
+        else if (enableDebugLog)
+        {
+            Debug.Log("VirtualWallTool: Found MRUKPlacementManager for integration.");
+        }
+    }
+
+    /// <summary>
+    /// Request switching to placement manager and set the provided prefab as the selected model to place.
+    /// If placement manager is not found, this will log a warning.
+    /// This disables the virtual wall tool while placement manager runs.
+    /// </summary>
+    public void RequestPlacementOf(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            Debug.LogWarning("VirtualWallTool: RequestPlacementOf called with null prefab");
+            return;
+        }
+
+        _placementManager = _placementManager ?? FindObjectOfType<MRUKPlacementManager>();
+        if (_placementManager == null)
+        {
+            Debug.LogWarning("VirtualWallTool: MRUKPlacementManager not found in scene. Cannot request placement.");
+            return;
+        }
+
+        // store our enabled state so we can restore later
+        _wasEnabledBeforePlacement = this.enabled;
+
+        // disable this tool and hand off to placement manager
+        DisableTool();
+
+        // If the provided object is not a prefab asset but a runtime GameObject (e.g., a created wall),
+        // we will try to instantiate a simple clone prefab to use for placement. If the user wants to place a specific
+        // prefab asset, pass that instead.
+        GameObject prefabToUse = prefab;
+#if UNITY_EDITOR
+        // In editor builds we could create a temporary prefab asset, but to keep runtime safe we just use the object itself as a template.
+#endif
+        _placementManager.EnterPlacementWithModel(prefabToUse);
+
+        if (enableDebugLog)
+            Debug.Log($"VirtualWallTool: Requested placement of {prefabToUse.name} via MRUKPlacementManager");
+    }
+
+    /// <summary>
+    /// Return from placement mode: clear placement selection and re-enable this tool if it was enabled before.
+    /// </summary>
+    public void ReturnFromPlacement()
+    {
+        _placementManager = _placementManager ?? FindObjectOfType<MRUKPlacementManager>();
+        if (_placementManager != null)
+        {
+            _placementManager.ClearSelection();
+        }
+
+        if (_wasEnabledBeforePlacement)
+        {
+            EnableTool();
+        }
+
+        if (enableDebugLog)
+            Debug.Log("VirtualWallTool: Returned from placement and restored tool state");
     }
 }
 

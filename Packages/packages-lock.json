@@ -111,6 +111,13 @@
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
+    "com.t4games.item-icon-creator": {
+      "version": "https://github.com/Moe-Baker/Item-Icon-Creator.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "f0d632eb6b5dd74b8b0a8af4be3efd10743d53bb"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,

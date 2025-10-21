@@ -511,10 +511,8 @@ public class VirtualWallTool : MonoBehaviour
         }
 
         // Triangulate caps in (z,y) plane (2D)
-        var left2D = leftPts.Select(p => new Vector2(p.z, p.y)).ToList();
-        var right2D = rightPts.Select(p => new Vector2(p.z, p.y)).ToList();
-        var leftTris = Triangulate(left2D);
-        var rightTris = Triangulate(right2D);
+        var poly2D = localPts.Select(p => new Vector2(p.z, p.y)).ToList();
+        var capTris = Triangulate(poly2D);
 
         // Assemble cutter mesh vertices (in world space to simplify transform handling)
         var vertices = new List<Vector3>();
@@ -526,19 +524,19 @@ public class VirtualWallTool : MonoBehaviour
             vertices.Add(selectedWall.transform.TransformPoint(p));
 
         var cutterTris = new List<int>();
-        // left cap triangles (keep orientation outward)
-        for (int i = 0; i < leftTris.Count; i += 3)
+        // left cap triangles (use capTris). Use the same winding as triangulation.
+        for (int i = 0; i < capTris.Count; i += 3)
         {
-            cutterTris.Add(leftTris[i]);
-            cutterTris.Add(leftTris[i + 2]);
-            cutterTris.Add(leftTris[i + 1]);
+            cutterTris.Add(capTris[i]);
+            cutterTris.Add(capTris[i + 1]);
+            cutterTris.Add(capTris[i + 2]);
         }
-        // right cap triangles (indices offset by n). Reverse winding so normals point outward
-        for (int i = 0; i < rightTris.Count; i += 3)
+        // right cap triangles (indices offset by n). Reverse winding so normals point outward from the other side
+        for (int i = 0; i < capTris.Count; i += 3)
         {
-            cutterTris.Add(n + rightTris[i]);
-            cutterTris.Add(n + rightTris[i + 1]);
-            cutterTris.Add(n + rightTris[i + 2]);
+            cutterTris.Add(n + capTris[i + 2]);
+            cutterTris.Add(n + capTris[i + 1]);
+            cutterTris.Add(n + capTris[i]);
         }
 
         // sides between left and right
@@ -760,13 +758,13 @@ public class VirtualWallTool : MonoBehaviour
         int n = poly.Count;
         if (n < 3) return result;
 
+        // Work with an index list so we can reverse winding without mutating the input list
         var indices = Enumerable.Range(0, n).ToList();
 
-        // Ensure polygon is CCW
-        if (SignedArea(poly) < 0)
+        // Ensure polygon is CCW. If not, reverse the index order so orientation tests work correctly
+        if (SignedArea(poly) < 0f)
         {
-            poly.Reverse();
-            indices = Enumerable.Range(0, n).Reverse().ToList();
+            indices.Reverse();
         }
 
         int guard = 0;

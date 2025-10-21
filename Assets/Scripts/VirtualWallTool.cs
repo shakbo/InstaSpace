@@ -195,6 +195,24 @@ public class VirtualWallTool : MonoBehaviour
         bool hit = MRUK.Instance != null && MRUK.Instance.GetCurrentRoom() != null &&
                    MRUK.Instance.GetCurrentRoom().Raycast(ray, maxRayDistance, out hitInfo, out hitAnchor);
 
+        // --- Auto-select wall when pointing at it while in cutout mode ---
+        if (cutoutMode)
+        {
+            RaycastHit physHitAuto;
+            if (Physics.Raycast(ray, out physHitAuto, maxRayDistance) && physHitAuto.collider != null)
+            {
+                var root = GetCreatedWallRoot(physHitAuto.collider.gameObject);
+                if (root != null && root != selectedWall)
+                {
+                    selectedWall = root;
+                    // reset current polygon when switching walls to avoid mixing vertices
+                    currentPolyWorld.Clear();
+                    polyLineRenderer.positionCount = 0;
+                    Debug.Log($"VirtualWallTool: auto-selected wall {selectedWall.name} while pointing");
+                }
+            }
+        }
+
         // update preview line (only if preview visible)
         if (_previewLineGO != null && _previewLineGO.activeSelf && _previewLine != null)
         {

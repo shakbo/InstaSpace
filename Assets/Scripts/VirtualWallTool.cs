@@ -142,6 +142,27 @@ public class VirtualWallTool : MonoBehaviour
             currentPolyWorld.Clear();
             polyLineRenderer.positionCount = 0;
             polyPreviewGO.SetActive(cutoutMode);
+
+            // If entering cutout mode, attempt to auto-select a wall under the pointer so older walls can be edited
+            if (cutoutMode)
+            {
+                if (_rightHandAnchor != null)
+                {
+                    var raySel = new Ray(_rightHandAnchor.position, _rightHandAnchor.forward);
+                    RaycastHit physHitSel;
+                    if (Physics.Raycast(raySel, out physHitSel, maxRayDistance) && physHitSel.collider != null)
+                    {
+                        var goHit = physHitSel.collider.gameObject;
+                        var root = GetCreatedWallRoot(goHit);
+                        if (root != null)
+                        {
+                            selectedWall = root;
+                            Debug.Log($"VirtualWallTool: auto-selected wall {selectedWall.name} when entering cutout mode");
+                        }
+                    }
+                }
+            }
+
             Debug.Log($"VirtualWallTool: cutoutMode = {cutoutMode}");
         }
 
@@ -162,7 +183,7 @@ public class VirtualWallTool : MonoBehaviour
 
         if (clearSelectionButton != OVRInput.Button.None && OVRInput.GetDown(clearSelectionButton))
         {
-            // clear placement selection / return control
+            // clear placement selection / return to control
             ReturnFromPlacement();
         }
 
@@ -226,10 +247,14 @@ public class VirtualWallTool : MonoBehaviour
             if (Physics.Raycast(ray, out physHit, maxRayDistance))
             {
                 var go = physHit.collider != null ? physHit.collider.gameObject : null;
-                if (go != null && createdWalls.Contains(go))
+                if (go != null)
                 {
-                    selectedWall = go;
-                    Debug.Log($"VirtualWallTool: selected wall {selectedWall.name}");
+                    var root = GetCreatedWallRoot(go);
+                    if (root != null)
+                    {
+                        selectedWall = root;
+                        Debug.Log($"VirtualWallTool: selected wall {selectedWall.name}");
+                    }
                 }
             }
         }
@@ -247,11 +272,49 @@ public class VirtualWallTool : MonoBehaviour
                 {
                     var ray = new Ray(_rightHandAnchor.position, _rightHandAnchor.forward);
                     RaycastHit physHit;
-                    if (Physics.Raycast(ray, out physHit, maxRayDistance) && physHit.collider != null && physHit.collider.gameObject == selectedWall)
+                    if (Physics.Raycast(ray, out physHit, maxRayDistance) && physHit.collider != null)
                     {
-                        currentPolyWorld.Add(physHit.point);
-                        UpdatePolyLineRenderer();
-                        Debug.Log($"VirtualWallTool: added polygon vertex (phys hit) at {physHit.point}");
+                        var hitRoot = GetCreatedWallRoot(physHit.collider.gameObject);
+                        if (hitRoot == selectedWall)
+                        {
+                            currentPolyWorld.Add(physHit.point);
+                            UpdatePolyLineRenderer();
+                            Debug.Log($"VirtualWallTool: added polygon vertex (phys hit) at {physHit.point}");
+                        }
+                        else
+                        {
+                            // fallback: intersect with the nearest wall face plane
+                            var data = selectedWall.GetComponent<VirtualWallData>();
+                            if (data != null)
+                            {
+                                // compute the two face centers in world space
+                                var t = selectedWall.transform;
+                                var halfL = data.halfLength;
+                                var forward = t.forward;
+                                var candidate1 = t.position + forward * halfL;
+                                var candidate2 = t.position - forward * halfL;
+
+                                Plane plane1 = new Plane(forward, candidate1);
+                                Plane plane2 = new Plane(-forward, candidate2);
+                                var ray2 = new Ray(_rightHandAnchor.position, _rightHandAnchor.forward);
+                                if (plane1.Raycast(ray2, out var enter1))
+                                {
+                                    currentPolyWorld.Add(ray2.GetPoint(enter1));
+                                    UpdatePolyLineRenderer();
+                                    Debug.Log($"VirtualWallTool: added polygon vertex (plane1) at {ray2.GetPoint(enter1)}");
+                                }
+                                else if (plane2.Raycast(ray2, out var enter2))
+                                {
+                                    currentPolyWorld.Add(ray2.GetPoint(enter2));
+                                    UpdatePolyLineRenderer();
+                                    Debug.Log($"VirtualWallTool: added polygon vertex (plane2) at {ray2.GetPoint(enter2)}");
+                                }
+                                else
+                                {
+                                    Debug.Log("VirtualWallTool: could not project polygon vertex on wall");
+                                }
+                            }
+                        }
                     }
                     else
                     {
@@ -347,9 +410,37 @@ public class VirtualWallTool : MonoBehaviour
         {
             // try to raycast against the selectedWall first
             RaycastHit physHit;
-            if (Physics.Raycast(ray, out physHit, maxRayDistance) && physHit.collider != null && physHit.collider.gameObject == selectedWall)
+            if (Physics.Raycast(ray, out physHit, maxRayDistance) && physHit.collider != null)
             {
-                nextPos = physHit.point;
+                var hitRoot = GetCreatedWallRoot(physHit.collider.gameObject);
+                if (hitRoot == selectedWall)
+                {
+                    nextPos = physHit.point;
+                }
+                else
+                {
+                    var data = selectedWall.GetComponent<VirtualWallData>();
+                    if (data != null)
+                    {
+                        var t = selectedWall.transform;
+                        var halfL = data.halfLength;
+                        var forward = t.forward;
+                        var candidate = t.position + forward * halfL;
+                        Plane plane = new Plane(forward, candidate);
+                        if (plane.Raycast(ray, out var enter))
+                        {
+                            nextPos = ray.GetPoint(enter);
+                        }
+                        else
+                        {
+                            // try the back face
+                            candidate = t.position - forward * halfL;
+                            plane = new Plane(-forward, candidate);
+                            if (plane.Raycast(ray, out enter))
+                                nextPos = ray.GetPoint(enter);
+                        }
+                    }
+                }
             }
             else
             {
@@ -898,6 +989,19 @@ public class VirtualWallTool : MonoBehaviour
     public void BindRightHandTransform(Transform t)
     {
         _rightHandAnchor = t;
+    }
+
+    // Helper: given any GameObject hit by a ray, find the root GameObject that matches one of our createdWalls (walks up parents)
+    private GameObject GetCreatedWallRoot(GameObject go)
+    {
+        if (go == null) return null;
+        Transform cur = go.transform;
+        while (cur != null)
+        {
+            if (createdWalls.Contains(cur.gameObject)) return cur.gameObject;
+            cur = cur.parent;
+        }
+        return null;
     }
 
     // ---------- Integration APIs ----------

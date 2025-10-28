@@ -32,6 +32,9 @@ public class MRUKPlacementManager : MonoBehaviour
     [Tooltip("Enable debug logging for placement manager")]
     public bool enableDebugLog = false;
 
+    [Tooltip("If true, the manager will exit placement mode after placing an object.")]
+    public bool clearSelectionAfterPlacement = false;
+
     private int _selectedIndex = 0;
     private float _lastStickTime = 0f;
 
@@ -273,6 +276,10 @@ public class MRUKPlacementManager : MonoBehaviour
             {
                 PlaceSelectedAt(previewPos, previewRot);
                 _placedThisPress = true;
+                if (clearSelectionAfterPlacement)
+                {
+                    ClearSelection();
+                }
             }
         }
         else if (triggerVal < 0.2f)

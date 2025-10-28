@@ -13,6 +13,9 @@ public class PlaceModelInvoker : MonoBehaviour
     [Tooltip("Prefab to place. This is exposed in the inspector so you can drag a prefab here and then call PlaceModel() from a UnityEvent.")]
     public GameObject prefabToPlace;
 
+    [Tooltip("If true, exit placement mode after placing an object.")]
+    public bool clearSelectionAfterPlacement = false;
+
     [Tooltip("If true, the component will try to auto-find a MRUKPlacementManager on Awake/OnValidate when none is assigned.")]
     public bool autoFindManager = true;
 
@@ -50,6 +53,7 @@ public class PlaceModelInvoker : MonoBehaviour
             }
         }
 
+        placementManager.clearSelectionAfterPlacement = clearSelectionAfterPlacement;
         placementManager.EnterPlacementWithModel(prefabToPlace);
         Debug.Log($"PlaceModelInvoker: requested placement of {prefabToPlace.name}");
     }

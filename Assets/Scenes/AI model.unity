@@ -1685,6 +1685,7 @@ MonoBehaviour:
   rightControllerTransform: {fileID: 201574083}
   preferManualBinding: 1
   enableDebugLog: 0
+  clearSelectionAfterPlacement: 0
 --- !u!4 &198461474
 Transform:
   m_ObjectHideFlags: 0
@@ -11885,6 +11886,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 198461473}
   prefabToPlace: {fileID: 4593237176137472370, guid: 4bd2126c0abe88949bcddf1ff51765a2, type: 3}
+  clearSelectionAfterPlacement: 1
   autoFindManager: 0
 --- !u!1 &1295298353
 GameObject:

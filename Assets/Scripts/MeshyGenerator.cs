@@ -8,10 +8,9 @@ using System.Collections.Generic;
 using System;
 using UnityEngine.EventSystems;
 using System.Threading.Tasks;
-
-// 導入 glTFast 核心功能
+using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 using GLTFast;
-// (不再需要 using GLTFast.Materials;)
 
 public class MeshyGenerator : MonoBehaviour
 {
@@ -20,7 +19,7 @@ public class MeshyGenerator : MonoBehaviour
     [SerializeField] private string meshyApiUrl = "https://api.meshy.ai/openapi/v2/text-to-3d";
     [SerializeField] private string meshyTaskStatusUrlBase = "https://api.meshy.ai/openapi/v2/text-to-3d/";
     [SerializeField] private float pollingIntervalSeconds = 5.0f;
-    [SerializeField] private float maxPollingTimeSeconds = 600f; // 10 分鐘逾時
+    [SerializeField] private float maxPollingTimeSeconds = 600f;
 
     [Header("Required References")]
     [Tooltip("用於讀取生成提示的 InputField")]
@@ -38,21 +37,25 @@ public class MeshyGenerator : MonoBehaviour
     [Tooltip("請拖入您場景中帶有 PlaceModelInvoker.cs 的 GameObject")]
     [SerializeField] private PlaceModelInvoker placementInvoker;
 
+    // New: optional prefab override to use for preview instead of AI-generated GLB.
+    [Header("Debug / Override")]
+    [Tooltip("Optional: prefab to use as the preview model instead of loading the AI-generated GLB (useful for testing)")]
+    [SerializeField] private GameObject previewPrefabOverride;
+
     [Header("Preview Settings")]
     [SerializeField] private float previewPadding = 1.2f;
     [SerializeField] private float previewRotationSpeed = 0.4f;
 
-    // 內部狀態
     private GameObject currentPreviewModelInstance;
     private RenderTexture previewRenderTexture;
     private bool isDraggingPreview = false;
-    private bool isBusy = false; // 防止重複觸發 API 流程
+    private bool isBusy = false;
 
-    // JSON 輔助類別 (與之前相同)
     [System.Serializable] private class TextTo3DRequestPreview { public string mode = "preview"; public string prompt; public string art_style = "realistic"; }
     [System.Serializable] private class TextTo3DRequestRefine { public string mode = "refine"; public string preview_task_id; public bool enable_pbr = true; }
-    [System.Serializable] private class TaskCreateResponse { public string result = string.Empty; }
-    [System.Serializable] private class TaskStatusResponse { public string id = string.Empty; public ModelUrls model_urls = new ModelUrls(); public int progress = 0; public string status = string.Empty; public TaskError task_error = new TaskError(); }
+    [System.Serializable] private class TaskCreateResponse { public string result = string.Empty; public string id = string.Empty; }
+    [System.Serializable] private class TextureUrl { public string base_color = string.Empty; public string metallic = string.Empty; public string normal = string.Empty; public string roughness = string.Empty; }
+    [System.Serializable] private class TaskStatusResponse { public string id = string.Empty; public ModelUrls model_urls = new ModelUrls(); public int progress = 0; public string status = string.Empty; public TaskError task_error = new TaskError(); public TextureUrl[] texture_urls = null; }
     [System.Serializable] private class ModelUrls { public string glb = string.Empty; }
     [System.Serializable] private class TaskError { public string message = string.Empty; }
 
@@ -69,14 +72,12 @@ public class MeshyGenerator : MonoBehaviour
         SetStatus("Ready");
     }
 
-    // Try to auto-assign a TextMeshProUGUI status text if the inspector field was not set.
     void AutoAssignStatusTextIfMissing()
     {
         if (statusText != null) return;
 #if UNITY_2023_2_OR_NEWER
         TextMeshProUGUI found = UnityEngine.Object.FindFirstObjectByType<TextMeshProUGUI>();
 #else
-        // Fall back to the older API if FindFirstObjectByType is not available.
         TextMeshProUGUI found = FindObjectOfType<TextMeshProUGUI>();
 #endif
         if (found != null)
@@ -114,7 +115,10 @@ public class MeshyGenerator : MonoBehaviour
         RectTransform rawImageRect = previewImage.GetComponent<RectTransform>();
         int width = Mathf.Max(1, (int)rawImageRect.rect.width);
         int height = Mathf.Max(1, (int)rawImageRect.rect.height);
-        previewRenderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR);
+
+        // [FIX]: 將 RenderTextureFormat 從 DefaultHDR 改為 Default，以確保在 URP 中具有正確的深度緩衝區，解決粉紅色 Shader 錯誤。
+        previewRenderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.Default);
+
         if (!previewRenderTexture.Create()) { Debug.LogError("Failed to create RenderTexture"); return; }
         previewCamera.targetTexture = previewRenderTexture;
         previewImage.texture = previewRenderTexture;
@@ -138,12 +142,9 @@ public class MeshyGenerator : MonoBehaviour
     {
         if (statusText != null)
         {
-            // Ensure status text object is active (may be disabled in scene)
             if (!statusText.gameObject.activeInHierarchy) statusText.gameObject.SetActive(true);
-            // Bring status text to front so it is not occluded by other UI
             statusText.transform.SetAsLastSibling();
             statusText.text = message;
-            // Use white for non-error so it is visible on dark UI backgrounds
             statusText.color = isError ? Color.red : Color.white;
         }
         if (isError) Debug.LogError(message); else Debug.Log(message);
@@ -174,35 +175,22 @@ public class MeshyGenerator : MonoBehaviour
         AddEventTriggerListener(trigger, EventTriggerType.PointerUp, (data) => { OnPreviewPointerUp((PointerEventData)data); });
     }
 
-    // --- 1. 將「生成」按鈕的 When Select() 綁定到此函式 ---
-    /// <summary>
-    /// 公開函式，用於從外部 (例如按鈕的 When Select 事件) 觸發模型生成流程。
-    /// </summary>
     public void StartGenerationFromPrompt()
     {
         if (isBusy) { Debug.LogWarning("MeshyGenerator is already busy."); return; }
-
         string prompt = promptInput.text;
         if (string.IsNullOrWhiteSpace(prompt)) { SetStatus("Prompt field is empty", true); return; }
-
         isBusy = true;
         CleanupPreviousModels();
-        // 通知外部（例如 UI）進入忙碌狀態，可以透過 UnityEvent
-        // OnGenerationStart?.Invoke();
-        SetStatus("Starting generation..."); // 更新狀態
-
+        SetStatus("Starting generation...");
         StartCoroutine(GenerateAndRefineWorkflow(prompt));
     }
 
-    // (移除了 UpdatePromptFromMetaDictation，由外部處理 InputField 的 text)
-
-    // --- 2. 自動化工作流程 (Preview -> Refine -> Load) ---
     IEnumerator GenerateAndRefineWorkflow(string prompt)
     {
-        // 階段 1 & 2: Preview
         SetStatus("Step 1/4: Creating preview...");
         string previewTaskId = null;
-        yield return StartCoroutine(CreateTaskCoroutine(new TextTo3DRequestPreview { prompt = prompt }, result => previewTaskId = result));
+        yield return StartCoroutine(CreateTaskCoroutine(new TextTo3DRequestPreview { prompt = prompt }, result => previewTaskId = result, "preview"));
         if (string.IsNullOrEmpty(previewTaskId)) { OnWorkflowEnd(false, false, "Failed to create preview task"); yield break; }
 
         SetStatus($"Step 2/4: Waiting for preview model...");
@@ -210,10 +198,9 @@ public class MeshyGenerator : MonoBehaviour
         yield return StartCoroutine(PollTaskStatusCoroutine(previewTaskId, result => previewStatus = result));
         if (previewStatus == null || previewStatus.status != "SUCCEEDED") { OnWorkflowEnd(false, false, $"Preview task failed: {previewStatus?.task_error?.message ?? "N/A"}"); yield break; }
 
-        // 階段 3 & 4: Refine
         SetStatus($"Step 3/4: Refining model...");
         string refineTaskId = null;
-        yield return StartCoroutine(CreateTaskCoroutine(new TextTo3DRequestRefine { preview_task_id = previewTaskId, enable_pbr = true }, result => refineTaskId = result));
+        yield return StartCoroutine(CreateTaskCoroutine(new TextTo3DRequestRefine { preview_task_id = previewTaskId, enable_pbr = true }, result => refineTaskId = result, "refine"));
         if (string.IsNullOrEmpty(refineTaskId)) { OnWorkflowEnd(false, false, "Failed to create refine task"); yield break; }
 
         SetStatus($"Step 4/4: Waiting for refined model...");
@@ -221,25 +208,19 @@ public class MeshyGenerator : MonoBehaviour
         yield return StartCoroutine(PollTaskStatusCoroutine(refineTaskId, result => finalStatus = result));
         if (finalStatus == null || finalStatus.status != "SUCCEEDED") { OnWorkflowEnd(false, false, $"Refine task failed: {finalStatus?.task_error?.message ?? "N/A"}"); yield break; }
 
-        // 階段 5: 載入模型
         SetStatus("Loading final model...");
         string modelUrl = finalStatus.model_urls?.glb;
         if (string.IsNullOrEmpty(modelUrl)) { OnWorkflowEnd(false, false, "Refinement succeeded but GLB URL not found"); yield break; }
 
-        yield return StartCoroutine(LoadModelIntoPreview(modelUrl));
+        yield return StartCoroutine(LoadModelIntoPreview(modelUrl, finalStatus));
 
-        // 階段 6: 協作 - 傳遞模型給 PlaceModelInvoker
         bool success = currentPreviewModelInstance != null;
         bool placementReady = false;
         string finalMessage = "";
         if (success && placementInvoker != null)
         {
-            GameObject placementPrefab = Instantiate(currentPreviewModelInstance);
-            placementPrefab.name = currentPreviewModelInstance.name + "_PlacementPrefab";
-            SetLayerRecursively(placementPrefab, LayerMask.NameToLayer("Default")); // 移到 Default 層供 MRUK 使用
-            placementPrefab.SetActive(false);
-            placementPrefab.transform.SetParent(transform);
-            placementInvoker.SetPrefab(placementPrefab); // 設定給 Invoker
+            // Do not modify the inspector-assigned prefabToPlace on placementInvoker anymore.
+            // Simply indicate that a model is ready for placement; Placement invoker can use its configured prefab.
             finalMessage = "Model ready for placement";
             placementReady = true;
         }
@@ -249,25 +230,17 @@ public class MeshyGenerator : MonoBehaviour
         OnWorkflowEnd(success, placementReady, finalMessage);
     }
 
-    /// <summary>
-    /// 工作流程結束時呼叫。
-    /// </summary>
     private void OnWorkflowEnd(bool success, bool placementReady, string message)
     {
-        isBusy = false; // 允許再次觸發
+        isBusy = false;
         SetStatus(message, !success);
-        // 通知外部（例如 UI）結束忙碌狀態，可以透過 UnityEvent
-        // if(success) OnGenerationSuccess?.Invoke();
-        // else OnGenerationFail?.Invoke();
-        // if (placementReady) OnPlacementReady?.Invoke();
     }
 
-    // --- 3. 核心 API 協程 (與之前相同) ---
-    IEnumerator CreateTaskCoroutine(object requestData, System.Action<string> callback)
+    IEnumerator CreateTaskCoroutine(object requestData, System.Action<string> callback, string requestName = null)
     {
-        string jsonPayload = "";
-        try { jsonPayload = JsonUtility.ToJson(requestData); } catch (Exception e) { SetStatus($"Failed to serialize request: {e.Message}", true); callback?.Invoke(null); yield break; }
+        string jsonPayload = JsonUtility.ToJson(requestData);
         byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+        Debug.Log($"CreateTask ({requestName ?? "create"}) request payload: {jsonPayload}");
         using (UnityWebRequest request = new UnityWebRequest(meshyApiUrl, "POST"))
         {
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
@@ -277,11 +250,52 @@ public class MeshyGenerator : MonoBehaviour
             yield return request.SendWebRequest();
             if (request.result == UnityWebRequest.Result.Success)
             {
+                string raw = request.downloadHandler.text;
+                Debug.Log($"CreateTask ({requestName ?? "create"}) response: {raw}");
                 try
                 {
-                    TaskCreateResponse response = JsonUtility.FromJson<TaskCreateResponse>(request.downloadHandler.text);
-                    if (response != null && !string.IsNullOrEmpty(response.result)) { callback?.Invoke(response.result); }
-                    else { SetStatus($"API response format error: {request.downloadHandler.text}", true); callback?.Invoke(null); }
+                    string returnedId = null;
+                    try
+                    {
+                        var jobj = JObject.Parse(raw);
+                        var rtoken = jobj["result"];
+                        if (rtoken != null)
+                        {
+                            if (rtoken.Type == JTokenType.String) returnedId = rtoken.Value<string>();
+                            else if (rtoken.Type == JTokenType.Object && rtoken["id"] != null) returnedId = rtoken["id"].Value<string>();
+                        }
+                        if (string.IsNullOrEmpty(returnedId) && jobj["id"] != null) returnedId = jobj["id"].Value<string>();
+                    }
+                    catch (Exception) { }
+
+                    if (string.IsNullOrEmpty(returnedId))
+                    {
+                        try
+                        {
+                            TaskCreateResponse resp = JsonUtility.FromJson<TaskCreateResponse>(raw);
+                            if (resp != null)
+                            {
+                                if (!string.IsNullOrEmpty(resp.result)) returnedId = resp.result;
+                                else if (!string.IsNullOrEmpty(resp.id)) returnedId = resp.id;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (string.IsNullOrEmpty(returnedId))
+                    {
+                        var m = Regex.Match(raw, "\"id\"\\s*:\\s*\"(?<id>[^\"]+)\"");
+                        if (m.Success) returnedId = m.Groups["id"].Value;
+                        else
+                        {
+                            m = Regex.Match(raw, "\"result\"\\s*:\\s*\"(?<res>[^\"]+)\"");
+                            if (m.Success) returnedId = m.Groups["res"].Value;
+                        }
+                    }
+
+                    Debug.Log($"CreateTask ({requestName ?? "create"}) parsed id: {returnedId}");
+                    if (!string.IsNullOrEmpty(returnedId)) callback?.Invoke(returnedId);
+                    else { SetStatus($"API response format error: {raw}", true); callback?.Invoke(null); }
                 }
                 catch (Exception e) { SetStatus($"JSON parse failed: {e.Message}", true); callback?.Invoke(null); }
             }
@@ -319,26 +333,60 @@ public class MeshyGenerator : MonoBehaviour
         callback?.Invoke(null);
     }
 
-    // --- 4. 修正 URP 的 glTFast 載入函式 ---
-    IEnumerator LoadModelIntoPreview(string modelUrl)
+    IEnumerator LoadModelIntoPreview(string modelUrl, TaskStatusResponse taskStatus = null)
     {
-        // Make substring safe to avoid exceptions for short URLs
         string preview = modelUrl;
         if (!string.IsNullOrEmpty(modelUrl) && modelUrl.Length > 30) preview = modelUrl.Substring(0, 30);
         SetStatus($"Loading GLB: {preview}...");
         CleanupPreviousModels();
-        var gltf = new GltfImport(); // 自動偵測 URP
-        Task<bool> loadTask = gltf.Load(modelUrl);
+
+        // If a prefab override is provided, use it instead of loading GLB from URL.
+        if (previewPrefabOverride != null)
+        {
+            SetStatus("Using preview prefab override for preview model...");
+            GameObject instance = Instantiate(previewPrefabOverride, previewModelContainer.transform);
+            instance.name = previewPrefabOverride.name;
+            instance.transform.localPosition = Vector3.zero;
+            // Rotate preview by 180 degrees on Y
+            instance.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            instance.transform.localScale = Vector3.one;
+            currentPreviewModelInstance = instance;
+            int targetLayer = LayerMaskUtility.GetLayerIndexFromMask(previewModelLayer);
+            if (targetLayer != -1) SetLayerRecursively(currentPreviewModelInstance, targetLayer);
+            // Position camera around the instantiated prefab
+            yield return null;
+            PositionPreviewCamera(currentPreviewModelInstance);
+            yield break;
+        }
+
+        var gltf = new GltfImport();
+
+        var importSettings = new ImportSettings
+        {
+            GenerateMipMaps = true,
+            AnisotropicFilterLevel = 1,
+            NodeNameMethod = NameImportMethod.OriginalUnique
+        };
+
+        Task<bool> loadTask = gltf.Load(modelUrl, importSettings);
         yield return new WaitUntil(() => loadTask.IsCompleted);
+
         if (loadTask.IsCompletedSuccessfully && loadTask.Result)
         {
             Task<bool> instantiateTask = gltf.InstantiateMainSceneAsync(previewModelContainer.transform);
             yield return new WaitUntil(() => instantiateTask.IsCompleted);
+
             if (instantiateTask.IsCompletedSuccessfully && instantiateTask.Result && previewModelContainer.transform.childCount > 0)
             {
                 currentPreviewModelInstance = previewModelContainer.transform.GetChild(0).gameObject;
+                // Rotate preview model 180 degrees around local Y
+                currentPreviewModelInstance.transform.localRotation = Quaternion.Euler(
+                    currentPreviewModelInstance.transform.localEulerAngles.x,
+                    currentPreviewModelInstance.transform.localEulerAngles.y + 180f,
+                    currentPreviewModelInstance.transform.localEulerAngles.z);
                 int targetLayer = LayerMaskUtility.GetLayerIndexFromMask(previewModelLayer);
                 if (targetLayer != -1) SetLayerRecursively(currentPreviewModelInstance, targetLayer);
+
                 yield return null;
                 PositionPreviewCamera(currentPreviewModelInstance);
             }
@@ -347,7 +395,6 @@ public class MeshyGenerator : MonoBehaviour
         else { SetStatus("Failed to load GLB data", true); currentPreviewModelInstance = null; }
     }
 
-    // --- 5. 預覽視窗輔助函式 (完整) ---
     void PositionPreviewCamera(GameObject targetModel)
     {
         if (targetModel == null || previewCamera == null) return;
@@ -384,11 +431,11 @@ public class MeshyGenerator : MonoBehaviour
 
     void SetLayerRecursively(GameObject obj, int newLayer)
     {
-        if (obj == null) return; try { obj.layer = newLayer; } catch (Exception ex) { Debug.LogError($"Failed to set Layer {newLayer} on {obj.name}: {ex.Message}"); return; }
+        if (obj == null) return;
+        try { obj.layer = newLayer; } catch (Exception ex) { Debug.LogError($"Failed to set Layer {newLayer} on {obj.name}: {ex.Message}"); return; }
         foreach (Transform child in obj.transform) { if (child != null) SetLayerRecursively(child.gameObject, newLayer); }
     }
 
-    // --- 預覽視窗拖曳旋轉 ---
     public void OnPreviewPointerDown(PointerEventData eventData) { isDraggingPreview = true; }
     public void OnPreviewDrag(PointerEventData eventData)
     {
@@ -403,7 +450,6 @@ public class MeshyGenerator : MonoBehaviour
     public void OnPreviewPointerUp(PointerEventData eventData) { isDraggingPreview = false; }
 }
 
-// 輔助工具 (來自您的原始碼)
 public static class LayerMaskUtility
 {
     public static int GetLayerIndexFromMask(LayerMask layerMask)

@@ -1682,7 +1682,7 @@ MonoBehaviour:
   maxRayDistance: 10
   leftStickThreshold: 0.7
   stickCooldown: 0.25
-  rightControllerTransform: {fileID: 0}
+  rightControllerTransform: {fileID: 201574083}
   preferManualBinding: 1
   enableDebugLog: 0
 --- !u!4 &198461474
@@ -1694,7 +1694,7 @@ Transform:
   m_GameObject: {fileID: 198461472}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.08347, y: 1.11344, z: -0.23565}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3683,7 +3683,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1464721f2283eb14e94a33e812b47be4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Oculus.Interaction::Oculus.Interaction.InteractableUnityEventWrapper
-  _interactableView: {fileID: 0}
+  _interactableView: {fileID: 401910167}
   _whenHover:
     m_PersistentCalls:
       m_Calls: []
@@ -3940,7 +3940,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -65, y: 0}
+  m_AnchoredPosition: {x: -121, y: -352}
   m_SizeDelta: {x: 450, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &430241206
@@ -3972,8 +3972,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278190335
-  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -4162,7 +4162,7 @@ Camera:
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967031
+    m_Bits: 2147483775
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -7807,7 +7807,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 824322188}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9521,7 +9521,7 @@ Camera:
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 2147483775
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -9965,7 +9965,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1029502641}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Visuals
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11839,7 +11839,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0bebc15f7b8864e499837a7648df8ddc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeshyGenerator
-  apiKey: msy_dummy_api_key_for_test_mode_12345678
+  apiKey: msy_783njGkCmFJ7CrIHYTn39lySDY0YZd5xPEhx
   meshyApiUrl: https://api.meshy.ai/openapi/v2/text-to-3d
   meshyTaskStatusUrlBase: https://api.meshy.ai/openapi/v2/text-to-3d/
   pollingIntervalSeconds: 5
@@ -11853,6 +11853,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   placementInvoker: {fileID: 1290616302}
+  previewPrefabOverride: {fileID: 3463566046551675846, guid: afb23a48d72397b439eefb5a3b12d8fd, type: 3}
   previewPadding: 1.2
   previewRotationSpeed: 0.4
 --- !u!4 &1290616301
@@ -11883,8 +11884,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 198461473}
-  prefabToPlace: {fileID: 0}
-  autoFindManager: 1
+  prefabToPlace: {fileID: 4593237176137472370, guid: 4bd2126c0abe88949bcddf1ff51765a2, type: 3}
+  autoFindManager: 0
 --- !u!1 &1295298353
 GameObject:
   m_ObjectHideFlags: 0
@@ -12714,7 +12715,7 @@ Camera:
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 2147483775
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -13944,7 +13945,7 @@ GameObject:
   - component: {fileID: 1677053861}
   - component: {fileID: 1677053860}
   - component: {fileID: 1677053859}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: ButtonVisual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -16112,7 +16113,7 @@ GameObject:
   - component: {fileID: 1905416786}
   - component: {fileID: 1905416784}
   - component: {fileID: 1905416785}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Surface
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -16341,7 +16342,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1936716732}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Chat
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17116,7 +17117,7 @@ GameObject:
   - component: {fileID: 2087154124}
   - component: {fileID: 2087154123}
   - component: {fileID: 2087154125}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: '[BuildingBlock] ISDK_PokeInteraction'
   m_TagString: Untagged
   m_Icon: {fileID: 0}

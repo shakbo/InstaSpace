@@ -18230,7 +18230,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 1015581834}
   prefabToPlace: {fileID: 3902160547452447621, guid: 5a6ecd6163d08e048878aacf43c2fc11, type: 3}
-  clearSelectionAfterPlacement: 0
+  clearSelectionAfterPlacement: 1
   autoFindManager: 0
 --- !u!1 &259775998
 GameObject:
@@ -63381,7 +63381,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 1015581834}
   prefabToPlace: {fileID: 1156763238284576395, guid: a8d1230453dc6bc4492d0930d9be748f, type: 3}
-  clearSelectionAfterPlacement: 0
+  clearSelectionAfterPlacement: 1
   autoFindManager: 0
 --- !u!114 &806262620
 MonoBehaviour:
@@ -72057,7 +72057,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 1015581834}
   prefabToPlace: {fileID: 5407908697726904802, guid: 223a7243791d43644a8b5f9ecd886368, type: 3}
-  clearSelectionAfterPlacement: 0
+  clearSelectionAfterPlacement: 1
   autoFindManager: 0
 --- !u!114 &912738484
 MonoBehaviour:
@@ -82378,7 +82378,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 1015581834}
   prefabToPlace: {fileID: 1229867581373690827, guid: 6f193f3ae32f7a74dbac953962236160, type: 3}
-  clearSelectionAfterPlacement: 0
+  clearSelectionAfterPlacement: 1
   autoFindManager: 0
 --- !u!114 &1065723560
 MonoBehaviour:
@@ -115892,7 +115892,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceModelInvoker
   placementManager: {fileID: 1015581834}
   prefabToPlace: {fileID: 4336104105728046906, guid: d831e0b7da2f6fb4b9ade46b40d151f8, type: 3}
-  clearSelectionAfterPlacement: 0
+  clearSelectionAfterPlacement: 1
   autoFindManager: 0
 --- !u!114 &1502625465
 MonoBehaviour:

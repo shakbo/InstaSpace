@@ -101,12 +101,13 @@ public class MeasurementTool: MonoBehaviour
         if (attachToController)
         {
             lastMeasurementInfo.gameObject.SetActive(true);
-            lastMeasurementInfo.transform.SetParent(tapePointer.transform.parent);
-            lastMeasurementInfo.transform.position = measurementInfoControllerOffset;
+            lastMeasurementInfo.transform.SetParent(tapePointer.transform.parent, false);
+            lastMeasurementInfo.transform.localPosition = measurementInfoControllerOffset;
+            lastMeasurementInfo.transform.localRotation = Quaternion.identity;
         }
         else
         {
-            lastMeasurementInfo.transform.SetParent(lastTapeLineRenderer.transform);
+            lastMeasurementInfo.transform.SetParent(null);
 
             Vector3 lineMidPoint = (lastTapeLineRenderer.GetPosition(0) + lastTapeLineRenderer.GetPosition(1)) / 2.0f;
 

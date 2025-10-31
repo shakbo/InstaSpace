@@ -29,6 +29,15 @@
       "dependencies": {},
       "hash": "a7c6b49a0141a5bff9b1983e38137522ef61977d"
     },
+    "com.learnxr.core": {
+      "version": "https://github.com/dilmerv/com.learnxr.core.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.textmeshpro": "3.0.4"
+      },
+      "hash": "7346a7397877564c070b02069eaeec5631cf9dc2"
+    },
     "com.meta.xr.mrutilitykit": {
       "version": "78.0.0",
       "depth": 1,
@@ -326,7 +335,7 @@
     },
     "com.unity.textmeshpro": {
       "version": "5.0.0",
-      "depth": 2,
+      "depth": 1,
       "source": "builtin",
       "dependencies": {
         "com.unity.ugui": "2.0.0"
